@@ -55,10 +55,89 @@ const itemsPerPage = 5;
 const isLoading = ref(true);
 const dollarRate = ref(1);
 
+// Estados para animaciones y transiciones
+const isTransitioning = ref(false);
+const transitionDirection = ref("next");
+const showPreferencesSaved = ref(false);
+
+// LocalStorage keys
+const STORAGE_KEYS = {
+  selectedCategories: "dashboard_selected_categories",
+  priceRange: "dashboard_price_range",
+  currentPage: "dashboard_current_page",
+  preferences: "dashboard_preferences",
+};
+
+// Mostrar notificación de preferencias guardadas
+const showSavedNotification = () => {
+  showPreferencesSaved.value = true;
+  setTimeout(() => {
+    showPreferencesSaved.value = false;
+  }, 2000);
+};
+
+// Cargar preferencias desde LocalStorage
+const loadPreferences = () => {
+  try {
+    // Cargar categorías seleccionadas
+    const savedCategories = localStorage.getItem(
+      STORAGE_KEYS.selectedCategories
+    );
+    if (savedCategories) {
+      selectedCategories.value = JSON.parse(savedCategories);
+    }
+
+    // Cargar rango de precios
+    const savedPriceRange = localStorage.getItem(STORAGE_KEYS.priceRange);
+    if (savedPriceRange) {
+      const { min, max } = JSON.parse(savedPriceRange);
+      minPrice.value = min;
+      maxPrice.value = max;
+    }
+
+    // Cargar página actual
+    const savedPage = localStorage.getItem(STORAGE_KEYS.currentPage);
+    if (savedPage) {
+      currentPage.value = parseInt(savedPage, 10);
+    }
+
+    console.log("✅ Preferencias cargadas desde LocalStorage");
+  } catch (error) {
+    console.error("Error loading preferences:", error);
+  }
+};
+
+// Guardar preferencias en LocalStorage
+const savePreferences = () => {
+  try {
+    localStorage.setItem(
+      STORAGE_KEYS.selectedCategories,
+      JSON.stringify(selectedCategories.value)
+    );
+    localStorage.setItem(
+      STORAGE_KEYS.priceRange,
+      JSON.stringify({
+        min: minPrice.value,
+        max: maxPrice.value,
+      })
+    );
+    localStorage.setItem(
+      STORAGE_KEYS.currentPage,
+      currentPage.value.toString()
+    );
+
+    showSavedNotification();
+    console.log("💾 Preferencias guardadas en LocalStorage");
+  } catch (error) {
+    console.error("Error saving preferences:", error);
+  }
+};
+
 // Fetch datos iniciales
 onMounted(async () => {
   await Promise.all([fetchProducts(), fetchCategories(), fetchDollarRate()]);
   isLoading.value = false;
+  loadPreferences(); // Cargar preferencias al montar el componente
 });
 
 // Obtener productos de la API usando axios
@@ -155,6 +234,7 @@ const endItem = computed(() =>
 // Resetear página cuando cambian los filtros
 watch([selectedCategories, minPrice, maxPrice], () => {
   currentPage.value = 1;
+  savePreferences(); // Guardar preferencias al cambiar filtros
 });
 
 // Estadísticas calculadas
@@ -214,22 +294,50 @@ const clearFilters = () => {
   minPrice.value = 0;
   maxPrice.value = 1000;
   currentPage.value = 1;
+  savePreferences(); // Guardar preferencias al limpiar filtros
 };
 
-// Funciones de paginación
-const goToPage = (page) => {
+// Funciones de paginación con animaciones
+const goToPage = async (page) => {
+  if (isTransitioning.value) return; // Evitar clicks múltiples durante transición
+
+  transitionDirection.value = page > currentPage.value ? "next" : "prev";
+  isTransitioning.value = true;
+
+  // Pequeña pausa para la animación de salida
+  await new Promise((resolve) => setTimeout(resolve, 150));
+
   currentPage.value = page;
+  savePreferences();
+
+  // Pausa para la animación de entrada
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  isTransitioning.value = false;
 };
 
-const goToPrevious = () => {
-  if (currentPage.value > 1) {
+const goToPrevious = async () => {
+  if (currentPage.value > 1 && !isTransitioning.value) {
+    transitionDirection.value = "prev";
+    isTransitioning.value = true;
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
     currentPage.value--;
+    savePreferences();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    isTransitioning.value = false;
   }
 };
 
-const goToNext = () => {
-  if (currentPage.value < totalPages.value) {
+const goToNext = async () => {
+  if (currentPage.value < totalPages.value && !isTransitioning.value) {
+    transitionDirection.value = "next";
+    isTransitioning.value = true;
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
     currentPage.value++;
+    savePreferences();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    isTransitioning.value = false;
   }
 };
 
@@ -424,6 +532,38 @@ const visiblePages = computed(() => {
         </div>
       </header>
     </div>
+
+    <!-- Notificación de Preferencias Guardadas -->
+    <transition name="notification">
+      <div
+        v-if="showPreferencesSaved"
+        class="fixed top-20 right-4 z-50 max-w-sm w-full bg-white rounded-lg shadow-lg border border-gray-200 p-4"
+      >
+        <div class="flex items-center">
+          <div class="flex-shrink-0">
+            <svg
+              class="h-5 w-5 text-green-400"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm font-medium text-gray-900">
+              Preferencias guardadas
+            </p>
+            <p class="text-xs text-gray-500">
+              Tus filtros se mantendrán al recargar
+            </p>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <main class="-mt-32">
       <div class="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
@@ -783,42 +923,55 @@ const visiblePages = computed(() => {
                 v-else
                 class="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8"
               >
-                <div
-                  v-for="product in paginatedProducts"
-                  :key="product.id"
-                  class="group relative"
+                <transition-group
+                  name="product-list"
+                  tag="div"
+                  class="contents"
+                  :class="{
+                    'transitioning-next':
+                      isTransitioning && transitionDirection === 'next',
+                    'transitioning-prev':
+                      isTransitioning && transitionDirection === 'prev',
+                  }"
                 >
-                  <img
-                    :src="product.imageSrc"
-                    :alt="product.imageAlt"
-                    loading="lazy"
-                    class="aspect-square w-full rounded-md bg-gray-200 object-cover group-hover:opacity-75 lg:aspect-auto lg:h-80"
-                  />
-                  <div class="mt-4">
-                    <div class="mb-2">
-                      <h3
-                        class="text-sm text-gray-700 font-medium line-clamp-2"
-                      >
-                        <a :href="product.href">
-                          <span aria-hidden="true" class="absolute inset-0" />
-                          {{ product.name }}
-                        </a>
-                      </h3>
-                      <p class="mt-1 text-xs text-gray-500 capitalize">
-                        {{ product.category }}
-                      </p>
-                    </div>
-                    <div class="flex flex-col space-y-1">
-                      <p class="text-sm font-semibold text-gray-900">
-                        {{ product.price }} USD
-                      </p>
-                      <p class="text-xs text-gray-600">
-                        Bs.
-                        {{ (product.priceValue * dollarRate).toFixed(2) }} VES
-                      </p>
+                  <div
+                    v-for="product in paginatedProducts"
+                    :key="`${currentPage}-${product.id}`"
+                    class="group relative product-card"
+                    :class="{ 'opacity-75': isTransitioning }"
+                  >
+                    <img
+                      :src="product.imageSrc"
+                      :alt="product.imageAlt"
+                      loading="lazy"
+                      class="aspect-square w-full rounded-md bg-gray-200 object-cover group-hover:opacity-75 lg:aspect-auto lg:h-80 transition-all duration-300"
+                    />
+                    <div class="mt-4">
+                      <div class="mb-2">
+                        <h3
+                          class="text-sm text-gray-700 font-medium line-clamp-2"
+                        >
+                          <a :href="product.href">
+                            <span aria-hidden="true" class="absolute inset-0" />
+                            {{ product.name }}
+                          </a>
+                        </h3>
+                        <p class="mt-1 text-xs text-gray-500 capitalize">
+                          {{ product.category }}
+                        </p>
+                      </div>
+                      <div class="flex flex-col space-y-1">
+                        <p class="text-sm font-semibold text-gray-900">
+                          {{ product.price }} USD
+                        </p>
+                        <p class="text-xs text-gray-600">
+                          Bs.
+                          {{ (product.priceValue * dollarRate).toFixed(2) }} VES
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </transition-group>
               </div>
 
               <!-- Paginación -->
@@ -935,176 +1088,3 @@ const visiblePages = computed(() => {
     </main>
   </div>
 </template>
-
-<style scoped>
-/* Estilos para los range sliders */
-.slider-thumb::-webkit-slider-thumb {
-  appearance: none;
-  height: 20px;
-  width: 20px;
-  border-radius: 50%;
-  background: #4f46e5;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-}
-
-.slider-thumb::-moz-range-thumb {
-  height: 20px;
-  width: 20px;
-  border-radius: 50%;
-  background: #4f46e5;
-  border: 2px solid #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  border: none;
-}
-
-.slider-thumb::-webkit-slider-track {
-  height: 8px;
-  background: #e5e7eb;
-  border-radius: 4px;
-}
-
-.slider-thumb::-moz-range-track {
-  height: 8px;
-  background: #e5e7eb;
-  border-radius: 4px;
-  border: none;
-}
-
-/* Hover effects */
-.slider-thumb:hover::-webkit-slider-thumb {
-  background: #3730a3;
-}
-
-.slider-thumb:hover::-moz-range-thumb {
-  background: #3730a3;
-}
-
-/* Focus styles */
-.slider-thumb:focus {
-  outline: none;
-}
-
-.slider-thumb:focus::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-.slider-thumb:focus::-moz-range-thumb {
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-/* Animaciones para las estadísticas */
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.stats-card {
-  animation: slideInUp 0.6s ease-out;
-}
-
-.stats-card:nth-child(2) {
-  animation-delay: 0.1s;
-}
-
-.stats-card:nth-child(3) {
-  animation-delay: 0.2s;
-}
-
-.stats-card:nth-child(4) {
-  animation-delay: 0.3s;
-}
-
-.stats-card:nth-child(5) {
-  animation-delay: 0.4s;
-}
-
-/* Efecto de pulso para números */
-.stats-number {
-  transition: all 0.3s ease;
-}
-
-.stats-card:hover .stats-number {
-  transform: scale(1.05);
-  font-weight: 700;
-}
-
-/* Truncar texto a 2 líneas */
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Gradientes sutiles para los iconos */
-.icon-blue {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.icon-green {
-  background: linear-gradient(135deg, #10b981, #047857);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.icon-yellow {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.icon-purple {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.icon-indigo {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Efectos hover para productos */
-.group:hover img {
-  transform: scale(1.02);
-  transition: transform 0.3s ease;
-}
-
-/* Animación de carga suave */
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Mejoras en botones disabled */
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-</style>
