@@ -18,7 +18,6 @@ import FilterSection from "./components/FilterSection.vue";
 import PaginationControls from "./components/PaginationControls.vue";
 import NotificationToast from "./components/NotificationToast.vue";
 import LoadingSkeleton from "./components/LoadingSkeleton.vue";
-import IconWithGradient from "./components/IconWithGradient.vue";
 import DashboardLayout from "./components/DashboardLayout.vue";
 
 const user = {
@@ -29,15 +28,15 @@ const user = {
 };
 const navigation = [
   { name: "Dashboard", href: "#", current: true },
-  { name: "Team", href: "#", current: false },
-  { name: "Projects", href: "#", current: false },
-  { name: "Calendar", href: "#", current: false },
-  { name: "Reports", href: "#", current: false },
+  { name: "Equipo", href: "#", current: false },
+  { name: "Proyectos", href: "#", current: false },
+  { name: "Calendario", href: "#", current: false },
+  { name: "Reportes", href: "#", current: false },
 ];
 const userNavigation = [
-  { name: "Your Profile", href: "#" },
-  { name: "Settings", href: "#" },
-  { name: "Sign out", href: "#" },
+  { name: "Tu Perfil", href: "#" },
+  { name: "Configuraciones", href: "#" },
+  { name: "Cerrar Sesión", href: "#" },
 ];
 
 // Estados reactivos
@@ -47,7 +46,7 @@ const selectedCategories = ref([]);
 const minPrice = ref(0);
 const maxPrice = ref(1000);
 const currentPage = ref(1);
-const itemsPerPage = 5;
+const itemsPerPage = 5; // Vuelvo a 5 productos por página
 const isLoading = ref(true);
 const dollarRate = ref(1);
 
@@ -63,6 +62,15 @@ const STORAGE_KEYS = {
   currentPage: "dashboard_current_page",
   preferences: "dashboard_preferences",
 };
+
+// Computed para detectar filtros activos
+const hasActiveFilters = computed(() => {
+  return (
+    selectedCategories.value.length > 0 ||
+    minPrice.value > 0 ||
+    maxPrice.value < 1000
+  );
+});
 
 // Handlers for DashboardLayout
 const handleNavigation = (item) => {
@@ -231,21 +239,52 @@ const filteredProducts = computed(() => {
   return filtered;
 });
 
-// Productos paginados
+// Productos paginados con lógica inteligente
 const paginatedProducts = computed(() => {
+  // Si hay filtros activos, mostrar TODOS los productos filtrados
+  if (hasActiveFilters.value) {
+    return filteredProducts.value;
+  }
+
+  // Si NO hay filtros, usar paginación normal (5 por página)
   const startIndex = (currentPage.value - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   return filteredProducts.value.slice(startIndex, endIndex);
 });
 
-// Cálculos de paginación
-const totalPages = computed(() =>
-  Math.ceil(filteredProducts.value.length / itemsPerPage)
-);
-const startItem = computed(() => (currentPage.value - 1) * itemsPerPage + 1);
-const endItem = computed(() =>
-  Math.min(currentPage.value * itemsPerPage, filteredProducts.value.length)
-);
+// Cálculos de paginación inteligente
+const totalPages = computed(() => {
+  // Si hay filtros activos, siempre es 1 página (muestra todos)
+  if (hasActiveFilters.value) {
+    return 1;
+  }
+
+  // Si NO hay filtros, calcular páginas normalmente
+  return Math.ceil(filteredProducts.value.length / itemsPerPage);
+});
+
+const startItem = computed(() => {
+  // Si hay filtros activos, empieza desde 1
+  if (hasActiveFilters.value) {
+    return filteredProducts.value.length > 0 ? 1 : 0;
+  }
+
+  // Si NO hay filtros, cálculo normal
+  return (currentPage.value - 1) * itemsPerPage + 1;
+});
+
+const endItem = computed(() => {
+  // Si hay filtros activos, termina en el total de filtrados
+  if (hasActiveFilters.value) {
+    return filteredProducts.value.length;
+  }
+
+  // Si NO hay filtros, cálculo normal
+  return Math.min(
+    currentPage.value * itemsPerPage,
+    filteredProducts.value.length
+  );
+});
 
 // Resetear página cuando cambian los filtros
 watch([selectedCategories, minPrice, maxPrice], () => {
@@ -428,7 +467,7 @@ const successIcon = {
     </template>
 
     <!-- Main Content -->
-    <div class="bg-white">
+    <div>
       <div
         class="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8"
       >
@@ -518,33 +557,65 @@ const successIcon = {
             </button>
           </div>
         </div>
-        <div
-          v-else
-          class="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8"
-        >
-          <transition-group
-            name="product-list"
-            tag="div"
-            class="contents"
-            :class="{
-              'transitioning-next':
-                isTransitioning && transitionDirection === 'next',
-              'transitioning-prev':
-                isTransitioning && transitionDirection === 'prev',
-            }"
+        <div v-else>
+          <!-- Indicador cuando se muestran todos los resultados filtrados -->
+          <div
+            v-if="hasActiveFilters"
+            class="mt-6 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
           >
-            <ProductCard
-              v-for="product in paginatedProducts"
-              :key="`${currentPage}-${product.id}`"
-              :product="product"
-              :dollar-rate="dollarRate"
-              :is-transitioning="isTransitioning"
-            />
-          </transition-group>
+            <div class="flex items-center">
+              <svg
+                class="h-5 w-5 text-blue-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                  <span class="font-medium"
+                    >Mostrando todos los resultados filtrados</span
+                  >
+                  <span class="ml-1"
+                    >({{ filteredProducts.length }} productos encontrados)</span
+                  >
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-5 xl:gap-x-8"
+          >
+            <transition-group
+              name="product-list"
+              tag="div"
+              class="contents"
+              :class="{
+                'transitioning-next':
+                  isTransitioning && transitionDirection === 'next',
+                'transitioning-prev':
+                  isTransitioning && transitionDirection === 'prev',
+              }"
+            >
+              <ProductCard
+                v-for="product in paginatedProducts"
+                :key="`${currentPage}-${product.id}`"
+                :product="product"
+                :dollar-rate="dollarRate"
+                :is-transitioning="isTransitioning"
+              />
+            </transition-group>
+          </div>
         </div>
 
-        <!-- Paginación -->
+        <!-- Paginación - Solo mostrar cuando NO hay filtros activos o hay más de 1 página -->
         <PaginationControls
+          v-if="!hasActiveFilters && totalPages > 1"
           :current-page="currentPage"
           :total-pages="totalPages"
           :start-item="startItem"

@@ -1,15 +1,15 @@
 <template>
   <div
-    class="group relative product-card"
+    class="group relative product-card rounded-md"
     :class="{ 'opacity-75': isTransitioning }"
   >
     <img
       :src="product.imageSrc"
       :alt="product.imageAlt"
       loading="lazy"
-      class="aspect-square w-full rounded-md bg-gray-200 object-cover group-hover:opacity-75 lg:aspect-auto lg:h-80 transition-all duration-300"
+      class="aspect-square w-full rounded-md bg-white object-contain group-hover:opacity-75 lg:aspect-auto lg:h-80 transition-all duration-300"
     />
-    <div class="mt-4">
+    <div class="mt-4 p-4 rounded-md">
       <div class="mb-2">
         <h3 class="text-sm text-gray-700 font-medium line-clamp-2">
           <a :href="product.href">

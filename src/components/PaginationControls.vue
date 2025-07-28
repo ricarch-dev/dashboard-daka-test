@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="totalPages > 1"
-    class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-10"
+    class="flex items-center justify-between border-t border-gray-200 px-4 py-3 sm:px-6 mt-10"
   >
     <!-- Mobile pagination -->
     <div class="flex flex-1 justify-between sm:hidden">
@@ -46,7 +46,7 @@
       </div>
       <div>
         <nav
-          class="isolate inline-flex -space-x-px rounded-md shadow-xs"
+          class="isolate inline-flex -space-x-px rounded-md shadow-xs bg-white"
           aria-label="Pagination"
         >
           <!-- Previous Button -->

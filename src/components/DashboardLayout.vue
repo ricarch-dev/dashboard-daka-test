@@ -1,12 +1,12 @@
 <template>
   <div class="min-h-full">
-    <!-- Header Section -->
-    <div class="bg-gray-800 pb-32">
+    <!-- Sección de encabezado -->
+    <div class="bg-gray-800 pb-32 shadow-xl">
       <Disclosure as="nav" class="bg-gray-800" v-slot="{ open }">
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div class="border-b border-gray-700">
             <div class="flex h-16 items-center justify-between px-4 sm:px-0">
-              <!-- Logo and Navigation -->
+              <!-- Logo y navegación -->
               <div class="flex items-center">
                 <div class="shrink-0">
                   <img :src="logo.src" :alt="logo.alt" class="size-8" />
@@ -32,27 +32,27 @@
                 </div>
               </div>
 
-              <!-- User Section -->
+              <!-- Sección de usuario -->
               <div class="hidden md:block">
                 <div class="ml-4 flex items-center md:ml-6">
-                  <!-- Notifications -->
+                  <!-- Notificaciones -->
                   <button
                     type="button"
                     class="relative rounded-full bg-gray-800 p-1 text-gray-400 hover:text-white focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden"
                     @click="$emit('notification-click')"
                   >
                     <span class="absolute -inset-1.5" />
-                    <span class="sr-only">View notifications</span>
+                    <span class="sr-only">Ver notificaciones</span>
                     <BellIcon class="size-6" aria-hidden="true" />
                   </button>
 
-                  <!-- Profile dropdown -->
+                  <!-- Perfil -->
                   <Menu as="div" class="relative ml-3">
                     <MenuButton
                       class="relative flex max-w-xs items-center rounded-full bg-gray-800 text-sm focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800"
                     >
                       <span class="absolute -inset-1.5" />
-                      <span class="sr-only">Open user menu</span>
+                      <span class="sr-only">Abrir menú de usuario</span>
                       <img
                         class="size-8 rounded-full"
                         :src="user.imageUrl"
@@ -93,13 +93,13 @@
                 </div>
               </div>
 
-              <!-- Mobile menu button -->
+              <!-- Botón de menú móvil -->
               <div class="-mr-2 flex md:hidden">
                 <DisclosureButton
                   class="relative inline-flex items-center justify-center rounded-md bg-gray-800 p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden"
                 >
                   <span class="absolute -inset-0.5" />
-                  <span class="sr-only">Open main menu</span>
+                  <span class="sr-only">Abrir menú principal</span>
                   <Bars3Icon
                     v-if="!open"
                     class="block size-6"
@@ -112,7 +112,7 @@
           </div>
         </div>
 
-        <!-- Mobile Navigation Panel -->
+        <!-- Panel de navegación móvil -->
         <DisclosurePanel class="border-b border-gray-700 md:hidden">
           <div class="space-y-1 px-2 py-3 sm:px-3">
             <DisclosureButton
@@ -133,7 +133,7 @@
             </DisclosureButton>
           </div>
 
-          <!-- Mobile User Section -->
+          <!-- Sección de usuario móvil -->
           <div class="border-t border-gray-700 pt-4 pb-3">
             <div class="flex items-center px-5">
               <div class="shrink-0">
@@ -157,7 +157,7 @@
                 @click="$emit('notification-click')"
               >
                 <span class="absolute -inset-1.5" />
-                <span class="sr-only">View notifications</span>
+                <span class="sr-only">Ver notificaciones</span>
                 <BellIcon class="size-6" aria-hidden="true" />
               </button>
             </div>
@@ -177,14 +177,14 @@
         </DisclosurePanel>
       </Disclosure>
 
-      <!-- Page Header -->
+      <!-- Encabezado de página -->
       <header class="py-10">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between">
             <h1 class="text-3xl font-bold tracking-tight text-white">
               {{ pageTitle }}
             </h1>
-            <!-- Header Actions Slot -->
+            <!-- Slot de acciones del encabezado -->
             <div
               v-if="$slots.headerActions"
               class="flex items-center space-x-4"
@@ -192,7 +192,7 @@
               <slot name="headerActions" />
             </div>
           </div>
-          <!-- Header Subtitle -->
+          <!-- Subtítulo del encabezado -->
           <p v-if="pageSubtitle" class="mt-2 text-lg text-gray-300">
             {{ pageSubtitle }}
           </p>
@@ -200,22 +200,22 @@
       </header>
     </div>
 
-    <!-- Notifications Slot -->
+    <!-- Slot de notificaciones -->
     <div v-if="$slots.notifications">
       <slot name="notifications" />
     </div>
 
-    <!-- Main Content -->
+    <!-- Contenido principal -->
     <main class="-mt-32">
       <div class="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
-        <div class="rounded-lg bg-white px-5 py-6 shadow-sm sm:px-6">
-          <!-- Main Content Slot -->
+        <div class="rounded-lg bg-slate-100 px-5 py-6 shadow-sm sm:px-6">
+          <!-- Slot de contenido principal -->
           <slot />
         </div>
       </div>
     </main>
 
-    <!-- Footer Slot -->
+    <!-- Slot de pie de página -->
     <footer v-if="$slots.footer">
       <slot name="footer" />
     </footer>
@@ -271,55 +271,3 @@ defineProps({
 // Events
 defineEmits(["navigate", "user-menu-click", "notification-click"]);
 </script>
-
-<style scoped>
-/* Transiciones suaves para dropdowns */
-.transition {
-  transition-property: all;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Focus visible para accesibilidad */
-*:focus-visible {
-  outline: 2px solid #4f46e5;
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* Responsive improvements */
-@media (max-width: 640px) {
-  .size-8 {
-    width: 2rem;
-    height: 2rem;
-  }
-
-  .size-10 {
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-}
-
-/* Hover effects */
-.hover\:bg-gray-50:hover {
-  background-color: #f9fafb;
-}
-
-.hover\:bg-gray-700:hover {
-  background-color: #374151;
-}
-
-.hover\:text-white:hover {
-  color: #ffffff;
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .bg-white {
-    background-color: #1f2937;
-  }
-
-  .text-gray-700 {
-    color: #d1d5db;
-  }
-}
-</style>
