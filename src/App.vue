@@ -178,17 +178,17 @@ const handleUpdateMaxPrice = (value: number): void => {
 // Handlers para paginación
 const handleGoToPage = async (page: number): Promise<void> => {
   await pagination.goToPage(page);
-  savePreferences();
+  preferences.saveCurrentPreferencesSilent(filters, pagination);
 };
 
 const handleGoToPrevious = async (): Promise<void> => {
   await pagination.goToPrevious(totalPages.value);
-  savePreferences();
+  preferences.saveCurrentPreferencesSilent(filters, pagination);
 };
 
 const handleGoToNext = async (): Promise<void> => {
   await pagination.goToNext(totalPages.value);
-  savePreferences();
+  preferences.saveCurrentPreferencesSilent(filters, pagination);
 };
 
 // Watchers para auto-guardar preferencias
@@ -307,8 +307,8 @@ const successIcon = {
           :is-loading="isLoading"
           @toggle-category="handleToggleCategory"
           @clear-filters="handleClearFilters"
-          @update-min-price="handleUpdateMinPrice"
-          @update-max-price="handleUpdateMaxPrice"
+          @update:minPrice="handleUpdateMinPrice"
+          @update:maxPrice="handleUpdateMaxPrice"
         />
 
         <!-- Lista de Productos -->

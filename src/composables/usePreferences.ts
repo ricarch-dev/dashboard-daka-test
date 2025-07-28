@@ -32,6 +32,10 @@ interface PreferencesReturn {
     filters?: FiltersComposable,
     pagination?: PaginationComposable
   ) => void;
+  saveCurrentPreferencesSilent: (
+    filters?: FiltersComposable,
+    pagination?: PaginationComposable
+  ) => void;
 }
 
 /**
@@ -83,6 +87,21 @@ export function usePreferences(): PreferencesReturn {
     showSavedNotification();
   };
 
+  // Función para guardar preferencias actuales sin notificación
+  const saveCurrentPreferencesSilent = (
+    filters?: FiltersComposable,
+    pagination?: PaginationComposable
+  ): void => {
+    const preferences: UserPreferences = {
+      selectedCategories: filters?.selectedCategories?.value || [],
+      minPrice: filters?.minPrice?.value || 0,
+      maxPrice: filters?.maxPrice?.value || 1000,
+      currentPage: pagination?.currentPage?.value || 1,
+    };
+
+    saveToStorage(preferences);
+  };
+
   return {
     // Estados
     showPreferencesSaved,
@@ -91,5 +110,6 @@ export function usePreferences(): PreferencesReturn {
     showSavedNotification,
     loadAndApplyPreferences,
     saveCurrentPreferences,
+    saveCurrentPreferencesSilent,
   };
 }
