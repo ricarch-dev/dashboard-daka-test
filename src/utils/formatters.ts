@@ -1,18 +1,15 @@
+import type { VenezuelanFormatOptions } from "@/types";
+
 /**
  * Formatea un número al estilo venezolano para precios
  * @param {number} value - El valor numérico a formatear
- * @param {Object} options - Opciones de formateo
+ * @param {VenezuelanFormatOptions} options - Opciones de formateo
  * @returns {string} - Número formateado al estilo venezolano
  */
 export const formatVenezuelanPrice = (
   value: number,
-  options?: {
-    currency?: string;
-    decimals?: number;
-    showCurrency?: boolean;
-    showDecimals?: boolean;
-  }
-) => {
+  options?: VenezuelanFormatOptions
+): string => {
   const {
     currency = "Bs.",
     decimals = 2,
@@ -40,7 +37,7 @@ export const formatVenezuelanPrice = (
  * @param {number} value - El valor en USD
  * @returns {string} - Precio formateado ($25.99)
  */
-export const formatUSDPrice = (value: number) => {
+export const formatUSDPrice = (value: number): string => {
   if (value === null || value === undefined || isNaN(value)) {
     return "$0.00";
   }
@@ -60,7 +57,7 @@ export const formatUSDPrice = (value: number) => {
  * @param {number} rate - La tasa de cambio
  * @returns {string} - Tasa formateada
  */
-export const formatExchangeRate = (rate: number) => {
+export const formatExchangeRate = (rate: number): string => {
   return formatVenezuelanPrice(rate, {
     currency: "Bs.",
     decimals: 2,
@@ -73,7 +70,7 @@ export const formatExchangeRate = (rate: number) => {
  * @param {number} value - El valor numérico
  * @returns {string} - Número formateado
  */
-export const formatLargeNumber = (value: number) => {
+export const formatLargeNumber = (value: number): string => {
   if (value === null || value === undefined || isNaN(value)) {
     return "0";
   }

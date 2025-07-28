@@ -1,9 +1,7 @@
-<script setup>
+<script setup lang="ts">
 import "./style/app.css";
 import "./style/components.css";
 import { ref, computed, onMounted, watch, h } from "vue";
-import axios from "axios";
-import { FunnelIcon } from "@heroicons/vue/24/outline";
 import {
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -11,426 +9,197 @@ import {
   ShoppingBagIcon,
 } from "@heroicons/vue/24/outline";
 
-// Importar utilidades de formateo
+// Importar API services
 import {
-  formatVenezuelanPrice,
-  formatExchangeRate,
-  formatUSDPrice,
-} from "@/utils/formatters";
+  fetchProducts as apiGetProducts,
+  updateProductsPricesVES,
+} from "@/api/products";
+import { fetchCategories as apiGetCategories } from "@/api/categories";
+import { fetchExchangeRate } from "@/api/exchange";
+
+// Importar composables
+import { useFilters } from "@/composables/useFilters";
+import { usePagination } from "@/composables/usePagination";
+import { usePreferences } from "@/composables/usePreferences";
+import { useStatistics } from "@/composables/useStatistics";
+
+// Importar constantes
+import {
+  USER_DATA,
+  NAVIGATION_ITEMS,
+  USER_NAVIGATION,
+} from "@/utils/constants";
+
+// Importar tipos
+import type { Product, Category } from "@/types";
 
 // Importar componentes
-import StatsCard from "./components/StatsCard.vue";
-import ProductCard from "./components/ProductCard.vue";
-import FilterSection from "./components/FilterSection.vue";
-import PaginationControls from "./components/PaginationControls.vue";
-import NotificationToast from "./components/NotificationToast.vue";
-import LoadingSkeleton from "./components/LoadingSkeleton.vue";
-import DashboardLayout from "./components/DashboardLayout.vue";
+import DashboardLayout from "@/components/DashboardLayout.vue";
+import FilterSection from "@/components/FilterSection.vue";
+import LoadingSkeleton from "@/components/LoadingSkeleton.vue";
+import NotificationToast from "@/components/NotificationToast.vue";
+import PaginationControls from "@/components/PaginationControls.vue";
+import ProductCard from "@/components/ProductCard.vue";
+import StatsCard from "@/components/StatsCard.vue";
 
-const user = {
-  name: "Tom Cook",
-  email: "tom@example.com",
-  imageUrl:
-    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-};
-const navigation = [
-  { name: "Dashboard", href: "#", current: true },
-  { name: "Equipo", href: "#", current: false },
-  { name: "Proyectos", href: "#", current: false },
-  { name: "Calendario", href: "#", current: false },
-  { name: "Reportes", href: "#", current: false },
-];
-const userNavigation = [
-  { name: "Tu Perfil", href: "#" },
-  { name: "Configuraciones", href: "#" },
-  { name: "Cerrar Sesión", href: "#" },
-];
+// Estados principales
+const allProducts = ref<Product[]>([]);
+const categories = ref<Category[]>([]);
+const dollarRate = ref<number>(1);
+const isLoading = ref<boolean>(true);
 
-// Estados reactivos
-const allProducts = ref([]);
-const categories = ref([]);
-const selectedCategories = ref([]);
-const minPrice = ref(0);
-const maxPrice = ref(1000);
-const currentPage = ref(1);
-const itemsPerPage = 5; // Vuelvo a 5 productos por página
-const isLoading = ref(true);
-const dollarRate = ref(1);
+// Composables
+const filters = useFilters();
+const pagination = usePagination();
+const preferences = usePreferences();
 
-// Estados para animaciones y transiciones
-const isTransitioning = ref(false);
-const transitionDirection = ref("next");
-const showPreferencesSaved = ref(false);
+// Productos filtrados usando el composable
+const filteredProducts = computed(() => {
+  return filters.filterProducts(allProducts.value);
+});
 
-// LocalStorage keys
-const STORAGE_KEYS = {
-  selectedCategories: "dashboard_selected_categories",
-  priceRange: "dashboard_price_range",
-  currentPage: "dashboard_current_page",
-  preferences: "dashboard_preferences",
-};
-
-// Computed para detectar filtros activos
-const hasActiveFilters = computed(() => {
-  return (
-    selectedCategories.value.length > 0 ||
-    minPrice.value > 0 ||
-    maxPrice.value < 1000
+// Productos paginados usando el composable
+const paginatedProducts = computed(() => {
+  return pagination.paginateProducts(
+    filteredProducts.value,
+    filters.hasActiveFilters.value
   );
 });
 
-// Handlers for DashboardLayout
-const handleNavigation = (item) => {
+// Estadísticas usando el composable
+const { statistics } = useStatistics(
+  allProducts,
+  filteredProducts,
+  categories,
+  dollarRate
+);
+
+// Computeds para paginación
+const totalPages = computed(() =>
+  pagination.getTotalPages(
+    filteredProducts.value.length,
+    filters.hasActiveFilters.value
+  )
+);
+
+const startItem = computed(() =>
+  pagination.getStartItem(
+    filteredProducts.value.length,
+    filters.hasActiveFilters.value
+  )
+);
+
+const endItem = computed(() =>
+  pagination.getEndItem(
+    filteredProducts.value.length,
+    filters.hasActiveFilters.value
+  )
+);
+
+const visiblePages = computed(() =>
+  pagination.getVisiblePages(totalPages.value)
+);
+
+// Handlers para DashboardLayout
+const handleNavigation = (item: any) => {
   console.log("Navigating to:", item);
-  // Update navigation state
-  navigation.forEach((navItem) => {
+  NAVIGATION_ITEMS.forEach((navItem) => {
     navItem.current = navItem.name === item.name;
   });
 };
 
-const handleUserMenuClick = (item) => {
+const handleUserMenuClick = (item: any) => {
   console.log("User menu clicked:", item);
-  // Implement user menu logic if needed
   if (item.name === "Sign out") {
-    // Handle logout
     console.log("User signing out...");
   }
 };
 
 const handleNotificationClick = () => {
   console.log("Notification clicked");
-  // Implement notification logic if needed
-  // Could open a notifications panel, etc.
 };
 
-// Mostrar notificación de preferencias guardadas
-const showSavedNotification = () => {
-  showPreferencesSaved.value = true;
-  setTimeout(() => {
-    showPreferencesSaved.value = false;
-  }, 2000);
-};
-
-// Cargar preferencias desde LocalStorage
-const loadPreferences = () => {
+// Función para inicializar la aplicación
+const initializeApp = async (): Promise<void> => {
   try {
-    const savedCategories = localStorage.getItem(
-      STORAGE_KEYS.selectedCategories
-    );
-    if (savedCategories) {
-      selectedCategories.value = JSON.parse(savedCategories);
-    }
+    // Cargar datos en paralelo
+    const [productsData, categoriesData, exchangeRate] = await Promise.all([
+      apiGetProducts(),
+      apiGetCategories(),
+      fetchExchangeRate(),
+    ]);
 
-    const savedPriceRange = localStorage.getItem(STORAGE_KEYS.priceRange);
-    if (savedPriceRange) {
-      const { min, max } = JSON.parse(savedPriceRange);
-      minPrice.value = min;
-      maxPrice.value = max;
-    }
+    // Establecer datos
+    categories.value = categoriesData;
+    dollarRate.value = exchangeRate;
 
-    const savedPage = localStorage.getItem(STORAGE_KEYS.currentPage);
-    if (savedPage) {
-      currentPage.value = parseInt(savedPage, 10);
-    }
+    // Actualizar productos con precios VES
+    allProducts.value = updateProductsPricesVES(productsData, exchangeRate);
 
-    console.log("✅ Preferencias cargadas desde LocalStorage");
+    // Cargar preferencias del usuario
+    preferences.loadAndApplyPreferences(filters, pagination);
   } catch (error) {
-    console.error("Error loading preferences:", error);
+    console.error("Error initializing app:", error);
+  } finally {
+    isLoading.value = false;
   }
 };
 
-// Guardar preferencias en LocalStorage
-const savePreferences = () => {
-  try {
-    localStorage.setItem(
-      STORAGE_KEYS.selectedCategories,
-      JSON.stringify(selectedCategories.value)
-    );
-    localStorage.setItem(
-      STORAGE_KEYS.priceRange,
-      JSON.stringify({
-        min: minPrice.value,
-        max: maxPrice.value,
-      })
-    );
-    localStorage.setItem(
-      STORAGE_KEYS.currentPage,
-      currentPage.value.toString()
-    );
-
-    showSavedNotification();
-    console.log("💾 Preferencias guardadas en LocalStorage");
-  } catch (error) {
-    console.error("Error saving preferences:", error);
-  }
+// Función para guardar preferencias
+const savePreferences = (): void => {
+  preferences.saveCurrentPreferences(filters, pagination);
 };
 
-// Fetch datos iniciales
-onMounted(async () => {
-  await Promise.all([fetchProducts(), fetchCategories(), fetchDollarRate()]);
-  isLoading.value = false;
-  loadPreferences();
-});
-
-// Obtener productos de la API usando axios
-const fetchProducts = async () => {
-  try {
-    const response = await axios.get("https://fakestoreapi.com/products");
-    const products = response.data;
-
-    allProducts.value = products.map((product) => ({
-      id: product.id,
-      name: product.title,
-      href: "#",
-      imageSrc: product.image,
-      imageAlt: product.title,
-      price: formatUSDPrice(product.price),
-      priceValue: product.price,
-      priceVES: 0,
-      color: product.category,
-      category: product.category,
-      description: product.description,
-    }));
-
-    allProducts.value.forEach((product) => {
-      product.priceVES = formatVenezuelanPrice(
-        product.priceValue * dollarRate.value
-      );
-    });
-  } catch (error) {
-    console.error("Error fetching products:", error);
-  }
-};
-
-// Obtener categorías de la API usando axios
-const fetchCategories = async () => {
-  try {
-    const response = await axios.get(
-      "https://fakestoreapi.com/products/categories"
-    );
-    categories.value = response.data;
-  } catch (error) {
-    console.error("Error fetching categories:", error);
-    categories.value = [
-      "electronics",
-      "jewelery",
-      "men's clothing",
-      "women's clothing",
-    ];
-  }
-};
-
-// Obtener tasa de cambio USD/VES usando axios
-const fetchDollarRate = async () => {
-  try {
-    const response = await axios.get(
-      "https://pydolarve.org/api/v1/dollar?page=bcv"
-    );
-    dollarRate.value = response.data.monitors.usd.price || 36.5;
-  } catch (error) {
-    console.error("Error fetching dollar rate:", error);
-    dollarRate.value = 36.5;
-  }
-};
-
-// Productos filtrados
-const filteredProducts = computed(() => {
-  let filtered = allProducts.value.filter((product) => {
-    const categoryMatch =
-      selectedCategories.value.length === 0 ||
-      selectedCategories.value.includes(product.category);
-    const priceMatch =
-      product.priceValue >= minPrice.value &&
-      product.priceValue <= maxPrice.value;
-    return categoryMatch && priceMatch;
-  });
-
-  return filtered;
-});
-
-// Productos paginados con lógica inteligente
-const paginatedProducts = computed(() => {
-  // Si hay filtros activos, mostrar TODOS los productos filtrados
-  if (hasActiveFilters.value) {
-    return filteredProducts.value;
-  }
-
-  // Si NO hay filtros, usar paginación normal (5 por página)
-  const startIndex = (currentPage.value - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  return filteredProducts.value.slice(startIndex, endIndex);
-});
-
-// Cálculos de paginación inteligente
-const totalPages = computed(() => {
-  // Si hay filtros activos, siempre es 1 página (muestra todos)
-  if (hasActiveFilters.value) {
-    return 1;
-  }
-
-  // Si NO hay filtros, calcular páginas normalmente
-  return Math.ceil(filteredProducts.value.length / itemsPerPage);
-});
-
-const startItem = computed(() => {
-  // Si hay filtros activos, empieza desde 1
-  if (hasActiveFilters.value) {
-    return filteredProducts.value.length > 0 ? 1 : 0;
-  }
-
-  // Si NO hay filtros, cálculo normal
-  return (currentPage.value - 1) * itemsPerPage + 1;
-});
-
-const endItem = computed(() => {
-  // Si hay filtros activos, termina en el total de filtrados
-  if (hasActiveFilters.value) {
-    return filteredProducts.value.length;
-  }
-
-  // Si NO hay filtros, cálculo normal
-  return Math.min(
-    currentPage.value * itemsPerPage,
-    filteredProducts.value.length
-  );
-});
-
-// Resetear página cuando cambian los filtros
-watch([selectedCategories, minPrice, maxPrice], () => {
-  currentPage.value = 1;
-  savePreferences();
-});
-
-// Estadísticas calculadas
-const statistics = computed(() => {
-  const all = allProducts.value;
-  const filtered = filteredProducts.value;
-
-  const averagePrice =
-    all.length > 0
-      ? all.reduce((sum, product) => sum + product.priceValue, 0) / all.length
-      : 0;
-
-  const filteredAveragePrice =
-    filtered.length > 0
-      ? filtered.reduce((sum, product) => sum + product.priceValue, 0) /
-        filtered.length
-      : 0;
-
-  const categoryCount = {};
-  filtered.forEach((product) => {
-    categoryCount[product.category] =
-      (categoryCount[product.category] || 0) + 1;
-  });
-
-  const mostPopularCategory = Object.entries(categoryCount).reduce(
-    (a, b) => (categoryCount[a[0]] > categoryCount[b[0]] ? a : b),
-    ["Ninguna", 0]
-  );
-
-  return {
-    totalProducts: all.length,
-    filteredProducts: filtered.length,
-    averagePrice: averagePrice.toFixed(2),
-    filteredAveragePrice: filteredAveragePrice.toFixed(2),
-    filteredAveragePriceFormatted: formatUSDPrice(filteredAveragePrice),
-    mostPopularCategory: mostPopularCategory[0],
-    mostPopularCategoryCount: mostPopularCategory[1],
-    categoriesCount: categories.value.length,
-    dollarRate: dollarRate.value,
-    dollarRateFormatted: formatExchangeRate(dollarRate.value),
-  };
-});
-
-// Funciones de filtros
-const toggleCategory = (category) => {
-  const index = selectedCategories.value.indexOf(category);
-  if (index > -1) {
-    selectedCategories.value.splice(index, 1);
-  } else {
-    selectedCategories.value.push(category);
-  }
-};
-
-const clearFilters = () => {
-  selectedCategories.value = [];
-  minPrice.value = 0;
-  maxPrice.value = 1000;
-  currentPage.value = 1;
+// Handlers para filtros
+const handleToggleCategory = (category: string): void => {
+  filters.toggleCategory(category);
+  pagination.resetPage();
   savePreferences();
 };
 
-const updateMinPrice = (value) => {
-  minPrice.value = value;
-};
-
-const updateMaxPrice = (value) => {
-  maxPrice.value = value;
-};
-
-// Funciones de paginación con animaciones
-const goToPage = async (page) => {
-  if (isTransitioning.value) return;
-
-  transitionDirection.value = page > currentPage.value ? "next" : "prev";
-  isTransitioning.value = true;
-
-  await new Promise((resolve) => setTimeout(resolve, 150));
-
-  currentPage.value = page;
+const handleClearFilters = (): void => {
+  filters.clearFilters();
+  pagination.resetPage();
   savePreferences();
-
-  await new Promise((resolve) => setTimeout(resolve, 150));
-  isTransitioning.value = false;
 };
 
-const goToPrevious = async () => {
-  if (currentPage.value > 1 && !isTransitioning.value) {
-    transitionDirection.value = "prev";
-    isTransitioning.value = true;
-
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    currentPage.value--;
-    savePreferences();
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    isTransitioning.value = false;
-  }
+const handleUpdateMinPrice = (value: number): void => {
+  filters.updateMinPrice(value);
+  pagination.resetPage();
+  savePreferences();
 };
 
-const goToNext = async () => {
-  if (currentPage.value < totalPages.value && !isTransitioning.value) {
-    transitionDirection.value = "next";
-    isTransitioning.value = true;
-
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    currentPage.value++;
-    savePreferences();
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    isTransitioning.value = false;
-  }
+const handleUpdateMaxPrice = (value: number): void => {
+  filters.updateMaxPrice(value);
+  pagination.resetPage();
+  savePreferences();
 };
 
-// Páginas visibles para la paginación
-const visiblePages = computed(() => {
-  const pages = [];
-  const total = totalPages.value;
-  const current = currentPage.value;
+// Handlers para paginación
+const handleGoToPage = async (page: number): Promise<void> => {
+  await pagination.goToPage(page);
+  savePreferences();
+};
 
-  if (total <= 7) {
-    for (let i = 1; i <= total; i++) {
-      pages.push(i);
-    }
-  } else {
-    if (current <= 4) {
-      pages.push(1, 2, 3, 4, 5, "...", total);
-    } else if (current >= total - 3) {
-      pages.push(1, "...", total - 4, total - 3, total - 2, total - 1, total);
-    } else {
-      pages.push(1, "...", current - 1, current, current + 1, "...", total);
-    }
-  }
+const handleGoToPrevious = async (): Promise<void> => {
+  await pagination.goToPrevious(totalPages.value);
+  savePreferences();
+};
 
-  return pages;
+const handleGoToNext = async (): Promise<void> => {
+  await pagination.goToNext(totalPages.value);
+  savePreferences();
+};
+
+// Watchers para auto-guardar preferencias
+watch([filters.selectedCategories, filters.minPrice, filters.maxPrice], () => {
+  pagination.resetPage();
+  savePreferences();
+});
+
+// Inicializar al montar
+onMounted(() => {
+  initializeApp();
 });
 
 // Icono para notificación de éxito
@@ -457,9 +226,9 @@ const successIcon = {
 
 <template>
   <DashboardLayout
-    :user="user"
-    :navigation="navigation"
-    :user-navigation="userNavigation"
+    :user="USER_DATA"
+    :navigation="NAVIGATION_ITEMS"
+    :user-navigation="USER_NAVIGATION"
     page-title="Dashboard"
     page-subtitle="Gestión de productos y estadísticas en tiempo real"
     @navigate="handleNavigation"
@@ -469,7 +238,7 @@ const successIcon = {
     <!-- Notifications Slot -->
     <template #notifications>
       <NotificationToast
-        :show="showPreferencesSaved"
+        :show="preferences.showPreferencesSaved.value"
         title="Preferencias guardadas"
         message="Tus filtros se mantendrán al recargar"
         :icon="successIcon"
@@ -497,23 +266,11 @@ const successIcon = {
           <StatsCard
             title="Filtrados"
             :value="statistics.filteredProducts"
-            :subtitle="`${
-              statistics.totalProducts > 0
-                ? (
-                    (statistics.filteredProducts / statistics.totalProducts) *
-                    100
-                  ).toFixed(0)
-                : 0
-            }% del total`"
-            :icon="FunnelIcon"
+            :subtitle="`${Math.round(
+              (statistics.filteredProducts / statistics.totalProducts) * 100
+            )}% del total`"
+            :icon="ChartBarIcon"
             icon-class="icon-green"
-          />
-          <StatsCard
-            title="Categorías Únicas"
-            :value="statistics.categoriesCount"
-            subtitle="Disponibles"
-            :icon="TagIcon"
-            icon-class="icon-purple"
           />
           <StatsCard
             title="Precio Promedio USD"
@@ -523,119 +280,76 @@ const successIcon = {
             icon-class="icon-yellow"
           />
           <StatsCard
+            title="Categoría Popular"
+            :value="statistics.mostPopularCategory"
+            :subtitle="`${statistics.mostPopularCategoryCount} productos`"
+            :icon="TagIcon"
+            icon-class="icon-purple"
+          />
+          <StatsCard
             title="Tasa BCV"
             :value="statistics.dollarRateFormatted"
-            subtitle="USD/VES actual"
-            :icon="ChartBarIcon"
-            icon-class="icon-indigo"
+            subtitle="USD/VES"
+            :icon="CurrencyDollarIcon"
+            icon-class="icon-red"
           />
         </div>
 
-        <!-- Filtros -->
+        <!-- Filtros y Búsqueda -->
         <FilterSection
           :categories="categories"
-          :selected-categories="selectedCategories"
-          :min-price="minPrice"
-          :max-price="maxPrice"
+          :selected-categories="filters.selectedCategories.value"
+          :min-price="filters.minPrice.value"
+          :max-price="filters.maxPrice.value"
           :all-products="allProducts"
           :filtered-count="filteredProducts.length"
+          :has-active-filters="filters.hasActiveFilters.value"
           :is-loading="isLoading"
-          @clear-filters="clearFilters"
-          @toggle-category="toggleCategory"
-          @update:min-price="updateMinPrice"
-          @update:max-price="updateMaxPrice"
+          @toggle-category="handleToggleCategory"
+          @clear-filters="handleClearFilters"
+          @update-min-price="handleUpdateMinPrice"
+          @update-max-price="handleUpdateMaxPrice"
         />
 
-        <!-- Productos -->
-        <LoadingSkeleton v-if="isLoading" type="products" :count="8" />
-        <div
-          v-else-if="paginatedProducts.length === 0"
-          class="mt-6 text-center py-12"
-        >
-          <ShoppingBagIcon class="mx-auto h-12 w-12 text-gray-400" />
-          <h3 class="mt-2 text-sm font-medium text-gray-900">
-            No hay productos
-          </h3>
-          <p class="mt-1 text-sm text-gray-500">
-            No se encontraron productos con los filtros seleccionados.
-          </p>
-          <div class="mt-6">
-            <button
-              @click="clearFilters"
-              class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Limpiar filtros
-            </button>
-          </div>
-        </div>
-        <div v-else>
-          <!-- Indicador cuando se muestran todos los resultados filtrados -->
-          <div
-            v-if="hasActiveFilters"
-            class="mt-6 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
-          >
-            <div class="flex items-center">
-              <svg
-                class="h-5 w-5 text-blue-400"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-              <div class="ml-3">
-                <p class="text-sm text-blue-700">
-                  <span class="font-medium"
-                    >Mostrando todos los resultados filtrados</span
-                  >
-                  <span class="ml-1"
-                    >({{ filteredProducts.length }} productos encontrados)</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div
-            class="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-5 xl:gap-x-8"
-          >
-            <transition-group
-              name="product-list"
-              tag="div"
-              class="contents"
-              :class="{
-                'transitioning-next':
-                  isTransitioning && transitionDirection === 'next',
-                'transitioning-prev':
-                  isTransitioning && transitionDirection === 'prev',
-              }"
+        <!-- Lista de Productos -->
+        <div class="mt-6">
+          <LoadingSkeleton v-if="isLoading" type="products" />
+          <div v-else>
+            <div
+              class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-8"
             >
               <ProductCard
                 v-for="product in paginatedProducts"
-                :key="`${currentPage}-${product.id}`"
+                :key="product.id"
                 :product="product"
                 :dollar-rate="dollarRate"
-                :is-transitioning="isTransitioning"
+                :is-transitioning="pagination.isTransitioning.value"
               />
-            </transition-group>
+            </div>
+
+            <!-- Mensaje cuando no hay productos -->
+            <div v-if="filteredProducts.length === 0" class="text-center py-12">
+              <div class="text-gray-400 text-lg">
+                No se encontraron productos con los filtros seleccionados
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Paginación - Solo mostrar cuando NO hay filtros activos o hay más de 1 página -->
+        <!-- Paginación -->
         <PaginationControls
-          v-if="!hasActiveFilters && totalPages > 1"
-          :current-page="currentPage"
+          v-if="!isLoading && filteredProducts.length > 0"
+          :current-page="pagination.currentPage.value"
           :total-pages="totalPages"
           :start-item="startItem"
           :end-item="endItem"
           :total-items="filteredProducts.length"
           :visible-pages="visiblePages"
-          @go-to-page="goToPage"
-          @go-to-previous="goToPrevious"
-          @go-to-next="goToNext"
+          :has-active-filters="filters.hasActiveFilters.value"
+          :is-transitioning="pagination.isTransitioning.value"
+          @go-to-page="handleGoToPage"
+          @go-to-previous="handleGoToPrevious"
+          @go-to-next="handleGoToNext"
         />
       </div>
     </div>
