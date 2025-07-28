@@ -11,6 +11,13 @@ import {
   ShoppingBagIcon,
 } from "@heroicons/vue/24/outline";
 
+// Importar utilidades de formateo
+import {
+  formatVenezuelanPrice,
+  formatExchangeRate,
+  formatUSDPrice,
+} from "@/utils/formatters";
+
 // Importar componentes
 import StatsCard from "./components/StatsCard.vue";
 import ProductCard from "./components/ProductCard.vue";
@@ -177,7 +184,7 @@ const fetchProducts = async () => {
       href: "#",
       imageSrc: product.image,
       imageAlt: product.title,
-      price: `$${product.price}`,
+      price: formatUSDPrice(product.price),
       priceValue: product.price,
       priceVES: 0,
       color: product.category,
@@ -186,7 +193,9 @@ const fetchProducts = async () => {
     }));
 
     allProducts.value.forEach((product) => {
-      product.priceVES = (product.priceValue * dollarRate.value).toFixed(2);
+      product.priceVES = formatVenezuelanPrice(
+        product.priceValue * dollarRate.value
+      );
     });
   } catch (error) {
     console.error("Error fetching products:", error);
@@ -324,10 +333,12 @@ const statistics = computed(() => {
     filteredProducts: filtered.length,
     averagePrice: averagePrice.toFixed(2),
     filteredAveragePrice: filteredAveragePrice.toFixed(2),
+    filteredAveragePriceFormatted: formatUSDPrice(filteredAveragePrice),
     mostPopularCategory: mostPopularCategory[0],
     mostPopularCategoryCount: mostPopularCategory[1],
     categoriesCount: categories.value.length,
     dollarRate: dollarRate.value,
+    dollarRateFormatted: formatExchangeRate(dollarRate.value),
   };
 });
 
@@ -506,15 +517,15 @@ const successIcon = {
           />
           <StatsCard
             title="Precio Promedio USD"
-            :value="`$${statistics.filteredAveragePrice}`"
+            :value="statistics.filteredAveragePriceFormatted"
             subtitle="Productos filtrados"
             :icon="CurrencyDollarIcon"
             icon-class="icon-yellow"
           />
           <StatsCard
-            title="USD/VES (BCV)"
-            :value="`Bs. ${statistics.dollarRate}`"
-            subtitle="Por 1 USD"
+            title="Tasa BCV"
+            :value="statistics.dollarRateFormatted"
+            subtitle="USD/VES actual"
             :icon="ChartBarIcon"
             icon-class="icon-indigo"
           />

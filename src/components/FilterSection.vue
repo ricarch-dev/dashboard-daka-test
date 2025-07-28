@@ -97,7 +97,7 @@
           <div class="space-y-3">
             <div class="flex justify-between text-xs text-gray-500">
               <span>$0</span>
-              <span>$1000</span>
+              <span>$1,000</span>
             </div>
 
             <!-- Custom Dual Range Slider -->
@@ -135,7 +135,7 @@
                     'opacity-0': !isDraggingMin,
                   }"
                 >
-                  ${{ minPrice }}
+                  {{ formatUSDPrice(minPrice) }}
                 </div>
               </div>
 
@@ -156,7 +156,7 @@
                     'opacity-0': !isDraggingMax,
                   }"
                 >
-                  ${{ maxPrice }}
+                  {{ formatUSDPrice(maxPrice) }}
                 </div>
               </div>
             </div>
@@ -164,8 +164,8 @@
             <div
               class="flex justify-between text-xs font-medium text-indigo-600"
             >
-              <span>${{ minPrice }}</span>
-              <span>${{ maxPrice }}</span>
+              <span>{{ formatUSDPrice(minPrice) }}</span>
+              <span>{{ formatUSDPrice(maxPrice) }}</span>
             </div>
           </div>
         </div>
@@ -193,7 +193,7 @@
           v-if="minPrice > 0 || maxPrice < 1000"
           class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
         >
-          ${{ minPrice }} - ${{ maxPrice }}
+          {{ formatUSDPrice(minPrice) }} - {{ formatUSDPrice(maxPrice) }}
         </span>
         <div class="flex items-center gap-1 text-sm text-gray-500">
           <span class="font-medium">{{ filteredCount }}</span>
@@ -207,6 +207,7 @@
 <script setup>
 import { computed, ref, onUnmounted } from "vue";
 import { FunnelIcon } from "@heroicons/vue/24/outline";
+import { formatUSDPrice } from "@/utils/formatters";
 
 // Referencias del DOM
 const trackRef = ref(null);

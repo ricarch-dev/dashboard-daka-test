@@ -23,10 +23,10 @@
       </div>
       <div class="flex flex-col space-y-1">
         <p class="text-sm font-semibold text-gray-900">
-          {{ product.price }} USD
+          {{ formatUSDPrice(product.priceValue) }}
         </p>
         <p class="text-xs text-gray-600">
-          Bs. {{ (product.priceValue * dollarRate).toFixed(2) }} VES
+          {{ formatVenezuelanPrice(product.priceValue * dollarRate) }}
         </p>
       </div>
     </div>
@@ -34,6 +34,8 @@
 </template>
 
 <script setup>
+import { formatVenezuelanPrice, formatUSDPrice } from "@/utils/formatters";
+
 defineProps({
   product: {
     type: Object,
